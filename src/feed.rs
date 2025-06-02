@@ -7,17 +7,17 @@ use md5::{Md5, Digest};
 
 const ENDPOINT: &str = "https://archlinux.org/feeds/news/";
 
-#[derive(Debug, Hash)]
+#[derive(Debug, Hash, Clone)]
 pub struct Entry {
-    title: String,
-    body: String,
-    timestamp: DateTime<Utc>,
+    pub title: String,
+    pub body: String,
+    pub timestamp: DateTime<Utc>,
     is_read: bool,
 }
 
 impl Display for Entry {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}     {}", self.title, self.timestamp)
+        write!(f, "{}\n{}\n{}", self.title, self.timestamp, self.body)
     }
 }
 
@@ -31,11 +31,11 @@ impl Entry {
         }
     }
 
-    fn mark_as_read(&mut self) {
+    pub fn mark_as_read(&mut self) {
         self.is_read = true;
     }
 
-    fn unread(&self) -> bool {
+    pub fn unread(&self) -> bool {
         !self.is_read
     }
 
@@ -51,7 +51,7 @@ impl Entry {
         ))
     }
 
-    fn digest(&self) -> [u8; 16] {
+    pub fn digest(&self) -> [u8; 16] {
         let mut hasher = Md5::new();
         hasher.update(self.title.as_bytes());
         hasher.update(self.timestamp.to_rfc3339().as_bytes());
@@ -65,10 +65,4 @@ pub fn entries() -> Result<Vec<Entry>, Box<dyn Error>> {
     let entries = ch.items().iter().map(|item|
         Entry::from_rss_item(item)).collect::<Result<Vec<Entry>, _>>()?;
     Ok(entries)
-}
-
-pub fn print_entries(entries: Vec<Entry>) -> () {
-    for (i, entry) in entries.iter().enumerate() {
-        println!("{}: {}", i + 1, entry)
-    }
 }
