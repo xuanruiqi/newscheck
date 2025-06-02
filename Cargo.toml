@@ -1,0 +1,12 @@
+[package]
+name = "newscheck"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rss = "2.0"
+reqwest = { version = "0.12", features = ["json", "blocking"] }
+sysinfo = "0.35.1"
+clap = { version = "4.5.39", features = ["derive"] }
+chrono = "0.4.41"
+md-5 = "0.10.6"
