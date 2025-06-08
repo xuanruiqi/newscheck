@@ -8,5 +8,8 @@ rss = "2.0"
 reqwest = { version = "0.12", features = ["json", "blocking"] }
 sysinfo = "0.35.1"
 clap = { version = "4.5.39", features = ["derive"] }
-chrono = "0.4.41"
+chrono = { version = "0.4.41", features = ["clock"] }
 md-5 = "0.10.6"
+terminal_size = "0.4.2"
+html2text = "0.15.1"
+term = "1.0.2"

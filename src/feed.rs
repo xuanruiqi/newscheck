@@ -31,13 +31,13 @@ impl Entry {
         }
     }
 
-    pub fn mark_as_read(&mut self) {
+/*     pub fn mark_as_read(&mut self) {
         self.is_read = true;
     }
 
     pub fn unread(&self) -> bool {
         !self.is_read
-    }
+    } */
 
     fn from_rss_item(item: &Item) -> Result<Self, Box<dyn Error>> {
         let title = item.title().ok_or("Cannot get title")?;

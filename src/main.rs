@@ -1,11 +1,12 @@
 mod feed;
 mod read_list;
-use std::fs::read;
+mod term;
 
 use feed::{Entry, entries};
 use sysinfo::{System, get_current_pid};
 use clap::{Command, arg};
 use read_list::{get_unread_entries, load_or_create};
+use term::pretty_print_item;
 
 const READ_LIST_PATH: &str = "readlist";
 
@@ -63,7 +64,7 @@ fn read_entries(entries: &Vec<Entry>, read_item: usize) -> () {
     match load_or_create(READ_LIST_PATH) {
         Ok(mut read_list) => {
             if let Some(entry) = entries.get(read_item) {
-                println!("{}", entry);
+                pretty_print_item(entry);
                 read_list.extend_from_slice(&entry.digest());
                 if let Err(e) = read_list::write_read_list(READ_LIST_PATH, read_list) {
                     eprintln!("Error writing to read list: {}", e);
