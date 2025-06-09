@@ -10,8 +10,8 @@ use term::pretty_print_item;
 
 const READ_LIST_PATH: &str = "readlist";
 
-struct CliArgs {
-    raw: bool,
+struct Config {
+    raw: bool, // whether to print raw HTML
 }
 
 fn cli() -> Command {
@@ -43,13 +43,13 @@ fn is_under_pacman() -> bool {
     }
 }
 
-fn list_entries(entries: &Vec<Entry>, _args: &CliArgs) -> () {
+fn list_entries(entries: &Vec<Entry>, _conf: &Config) -> () {
     for (i, entry) in entries.iter().enumerate() {
         println!("{}: {} {}", i, entry.title, entry.timestamp);
     }
 }
 
-fn check_entries(entries: &Vec<Entry>, _args: &CliArgs) -> () {
+fn check_entries(entries: &Vec<Entry>, _conf: &Config) -> () {
     match load_or_create(READ_LIST_PATH) {
         Ok(read_list) => {
             let unread_entries = get_unread_entries(entries, &read_list);
@@ -67,11 +67,11 @@ fn check_entries(entries: &Vec<Entry>, _args: &CliArgs) -> () {
     }
 }
 
-fn read_entries(entries: &Vec<Entry>, read_item: usize, args: &CliArgs) -> () {
+fn read_entries(entries: &Vec<Entry>, read_item: usize, conf: &Config) -> () {
     match load_or_create(READ_LIST_PATH) {
         Ok(mut read_list) => {
             if let Some(entry) = entries.get(read_item) {
-                if let Err(e) = pretty_print_item(entry, args.raw) {
+                if let Err(e) = pretty_print_item(entry, conf.raw) {
                     eprintln!("Error printing item: {}", e);
                 }
                 read_list.extend_from_slice(&entry.digest());
@@ -90,21 +90,21 @@ fn read_entries(entries: &Vec<Entry>, read_item: usize, args: &CliArgs) -> () {
 fn main() {
     let entries = entries();
     let matches = cli().get_matches();
-    let args = CliArgs {
+    let conf = Config {
         raw: matches.get_flag("raw"),
     };
     match entries {
         Ok(entries) => {
             match matches.subcommand() {
                 Some(("list", _)) => {
-                    list_entries(&entries, &args);
+                    list_entries(&entries, &conf);
                 },
                 Some(("check", _)) => {
-                    check_entries(&entries, &args);
+                    check_entries(&entries, &conf);
                 },
                 Some(("read", sub_matches)) => {
                     let read_item: usize = sub_matches.get_one::<String>("news_item").map_or("", |v| v).parse().unwrap_or(0);
-                    read_entries(&entries, read_item, &args);
+                    read_entries(&entries, read_item, &conf);
                 },
                 _ => println!("Subcommand not implemented yet."),
             }
