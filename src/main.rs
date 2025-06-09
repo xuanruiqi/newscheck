@@ -10,6 +10,10 @@ use term::pretty_print_item;
 
 const READ_LIST_PATH: &str = "readlist";
 
+struct CliArgs {
+    raw: bool,
+}
+
 fn cli() -> Command {
     Command::new("newscheck")
         .about("Another Arch Linux news reader")
@@ -26,6 +30,7 @@ fn cli() -> Command {
                 .about("Read a specific news item")
                 .arg(arg!([news_item] "The number of the news item to read"))
         )
+        .arg(arg!(-r --raw  "Do not format HTML in news items"))
 }
 
 fn is_under_pacman() -> bool {
@@ -38,18 +43,20 @@ fn is_under_pacman() -> bool {
     }
 }
 
-fn list_entries(entries: &Vec<Entry>) -> () {
+fn list_entries(entries: &Vec<Entry>, _args: &CliArgs) -> () {
     for (i, entry) in entries.iter().enumerate() {
         println!("{}: {} {}", i, entry.title, entry.timestamp);
     }
 }
 
-fn check_entries(entries: &Vec<Entry>) -> () {
+fn check_entries(entries: &Vec<Entry>, _args: &CliArgs) -> () {
     match load_or_create(READ_LIST_PATH) {
         Ok(read_list) => {
             let unread_entries = get_unread_entries(entries, &read_list);
             if unread_entries.is_empty() {
                 println!("There are no unread news items.");
+            } else if unread_entries.len() == 1 {
+                println!("There is 1 unread news item. Use \"newscheck read [# of news item]\" to read it."); 
             } else {
                 println!("There are {} unread news items. Use \"newscheck read [# of news item]\" to read them.", unread_entries.len());
             }
@@ -60,11 +67,13 @@ fn check_entries(entries: &Vec<Entry>) -> () {
     }
 }
 
-fn read_entries(entries: &Vec<Entry>, read_item: usize) -> () {
+fn read_entries(entries: &Vec<Entry>, read_item: usize, args: &CliArgs) -> () {
     match load_or_create(READ_LIST_PATH) {
         Ok(mut read_list) => {
             if let Some(entry) = entries.get(read_item) {
-                pretty_print_item(entry);
+                if let Err(e) = pretty_print_item(entry, args.raw) {
+                    eprintln!("Error printing item: {}", e);
+                }
                 read_list.extend_from_slice(&entry.digest());
                 if let Err(e) = read_list::write_read_list(READ_LIST_PATH, read_list) {
                     eprintln!("Error writing to read list: {}", e);
@@ -81,18 +90,21 @@ fn read_entries(entries: &Vec<Entry>, read_item: usize) -> () {
 fn main() {
     let entries = entries();
     let matches = cli().get_matches();
+    let args = CliArgs {
+        raw: matches.get_flag("raw"),
+    };
     match entries {
         Ok(entries) => {
             match matches.subcommand() {
                 Some(("list", _)) => {
-                    list_entries(&entries);
+                    list_entries(&entries, &args);
                 },
                 Some(("check", _)) => {
-                    check_entries(&entries);
+                    check_entries(&entries, &args);
                 },
                 Some(("read", sub_matches)) => {
                     let read_item: usize = sub_matches.get_one::<String>("news_item").map_or("", |v| v).parse().unwrap_or(0);
-                    read_entries(&entries, read_item);
+                    read_entries(&entries, read_item, &args);
                 },
                 _ => println!("Subcommand not implemented yet."),
             }
