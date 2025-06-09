@@ -4,33 +4,48 @@ mod term;
 
 use feed::{Entry, entries};
 use sysinfo::{System, get_current_pid};
-use clap::{Command, arg};
+use clap::{crate_version, Parser, Subcommand, Args};
 use read_list::{get_unread_entries, load_or_create};
 use term::pretty_print_item;
 
 const READ_LIST_PATH: &str = "readlist";
 
-struct Config {
+struct Config<'a> {
     raw: bool, // whether to print raw HTML
+    read_list_path: &'a str,
+    overwrite: bool, // whether to overwrite the read list
 }
 
-fn cli() -> Command {
-    Command::new("newscheck")
-        .about("Another Arch Linux news reader")
-        .subcommand(
-            Command::new("list")
-                .about("Print the recent news items")
-        )
-        .subcommand(
-            Command::new("check")
-                .about("Check for unread news items")
-        )
-        .subcommand(
-            Command::new("read")
-                .about("Read a specific news item")
-                .arg(arg!([news_item] "The number of the news item to read"))
-        )
-        .arg(arg!(-r --raw  "Do not format HTML in news items"))
+#[derive(Debug, Parser)]
+#[command(version = crate_version!(), about = "Another Arch Linux news reader")]
+#[command(propagate_version = true)]
+struct Cli {
+    #[clap(flatten)]
+    flags: Flags,
+    #[clap(subcommand)]
+    subcommand: SubCommand
+}
+
+#[derive(Debug, Args)]
+struct Flags {
+    #[clap(short, long, global = true, help="Print raw HTML instead of formatted text")]
+    raw: bool, // whether to print raw HTML
+    #[clap(long, global = true, help="Clear the read list file")]
+    clear_readlist: bool, // whether to clear the read list
+    #[clap(long = "file", short = 'f', global = true, help="Path to the read list file", default_value = READ_LIST_PATH)]
+    readlist_path: String, // path to the read list file
+}
+
+#[derive(Debug, Subcommand)]
+enum SubCommand {
+    #[command(about = "List the most recent news entries, including all read and unread items.")]
+    List,
+    #[command(about = "Check for unread news items.")]
+    Check,
+    #[command(about = "Read a specific news item.")]
+    Read {
+        num_item: Option<usize>
+    }
 }
 
 fn is_under_pacman() -> bool {
@@ -49,8 +64,8 @@ fn list_entries(entries: &Vec<Entry>, _conf: &Config) -> () {
     }
 }
 
-fn check_entries(entries: &Vec<Entry>, _conf: &Config) -> () {
-    match load_or_create(READ_LIST_PATH) {
+fn check_entries(entries: &Vec<Entry>, conf: &Config) -> () {
+    match load_or_create(conf.read_list_path, conf.overwrite) {
         Ok(read_list) => {
             let unread_entries = get_unread_entries(entries, &read_list);
             if unread_entries.is_empty() {
@@ -68,14 +83,14 @@ fn check_entries(entries: &Vec<Entry>, _conf: &Config) -> () {
 }
 
 fn read_entries(entries: &Vec<Entry>, read_item: usize, conf: &Config) -> () {
-    match load_or_create(READ_LIST_PATH) {
+    match load_or_create(conf.read_list_path, conf.overwrite) {
         Ok(mut read_list) => {
             if let Some(entry) = entries.get(read_item) {
                 if let Err(e) = pretty_print_item(entry, conf.raw) {
                     eprintln!("Error printing item: {}", e);
                 }
                 read_list.extend_from_slice(&entry.digest());
-                if let Err(e) = read_list::write_read_list(READ_LIST_PATH, read_list) {
+                if let Err(e) = read_list::write_read_list(conf.read_list_path, read_list) {
                     eprintln!("Error writing to read list: {}", e);
                 }
             } else {
@@ -88,25 +103,27 @@ fn read_entries(entries: &Vec<Entry>, read_item: usize, conf: &Config) -> () {
     }
 }
 fn main() {
+    let cli = Cli::parse();
     let entries = entries();
-    let matches = cli().get_matches();
+    // let matches = cli().get_matches();
     let conf = Config {
-        raw: matches.get_flag("raw"),
+        raw: cli.flags.raw,
+        read_list_path: cli.flags.readlist_path.as_str(),
+        overwrite: cli.flags.clear_readlist,
     };
     match entries {
         Ok(entries) => {
-            match matches.subcommand() {
-                Some(("list", _)) => {
+            match &cli.subcommand {
+                SubCommand::List => {
                     list_entries(&entries, &conf);
                 },
-                Some(("check", _)) => {
+                SubCommand::Check => {
                     check_entries(&entries, &conf);
                 },
-                Some(("read", sub_matches)) => {
-                    let read_item: usize = sub_matches.get_one::<String>("news_item").map_or("", |v| v).parse().unwrap_or(0);
+                SubCommand::Read { num_item } => {
+                    let read_item: usize = num_item.unwrap_or(0);
                     read_entries(&entries, read_item, &conf);
-                },
-                _ => println!("Subcommand not implemented yet."),
+                }
             }
         }
         Err(e) => {

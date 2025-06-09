@@ -4,7 +4,11 @@ use crate::feed::Entry;
 
 const HASH_SIZE: usize = 16;
 
-pub fn load_or_create(path: &str) -> std::io::Result<Vec<u8>> {
+pub fn load_or_create(path: &str, overwrite: bool) -> std::io::Result<Vec<u8>> {
+    if overwrite {
+        File::create(path)?;
+        return Ok(Vec::new());
+    }
     match read(path) {
         Ok(data) => Ok(data),
         Err(e) => {

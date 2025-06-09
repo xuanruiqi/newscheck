@@ -1,13 +1,13 @@
 [package]
 name = "newscheck"
-version = "0.1.0"
+version = "1.0.0-alpha"
 edition = "2024"
 
 [dependencies]
 rss = "2.0"
 reqwest = { version = "0.12.19", features = ["json", "blocking"] }
 sysinfo = "0.35.2"
-clap = { version = "4.5.39", features = ["derive"] }
+clap = { version = "4.5.40", features = ["cargo", "derive"] }
 chrono = { version = "0.4.41", features = ["clock"] }
 md-5 = "0.10.6"
 terminal_size = "0.4.2"
