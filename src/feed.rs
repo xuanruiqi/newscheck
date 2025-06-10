@@ -11,8 +11,7 @@ const ENDPOINT: &str = "https://archlinux.org/feeds/news/";
 pub struct Entry {
     pub title: String,
     pub body: String,
-    pub timestamp: DateTime<Utc>,
-    is_read: bool,
+    pub timestamp: DateTime<Utc>
 }
 
 impl Display for Entry {
@@ -27,17 +26,8 @@ impl Entry {
             title,
             body,
             timestamp,
-            is_read: false,
         }
     }
-
-/*     pub fn mark_as_read(&mut self) {
-        self.is_read = true;
-    }
-
-    pub fn unread(&self) -> bool {
-        !self.is_read
-    } */
 
     fn from_rss_item(item: &Item) -> Result<Self, Box<dyn Error>> {
         let title = item.title().ok_or("Cannot get title")?;

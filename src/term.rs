@@ -13,6 +13,17 @@ fn get_width() -> usize {
     }
 }
 
+pub fn pretty_print_title(id: usize, entry: &Entry) {
+    let term_width = get_width();
+    let pad = term_width.saturating_sub(entry.title.len() + 4);
+    // eprintln!("Pad length: {}", pad);
+    let ts = format!(
+        "{}",
+        entry.timestamp.with_timezone(&Local).format("%a, %d %b %Y %H:%M:%S %z")
+    );
+    println!("{}: {} {:>width$}", id, entry.title, ts, width = pad);
+}
+
 pub fn pretty_print_item(entry: &Entry, html_raw: bool) -> Result<(), std::io::Error> {
     let term_width = get_width();
     let mut t_ref = term::stdout();

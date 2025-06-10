@@ -55,7 +55,10 @@ struct Flags {
 #[derive(Debug, Subcommand)]
 enum SubCommand {
     #[command(about = "List the most recent news entries, including all read and unread items.")]
-    List,
+    List {
+        #[clap(long, help = "List news items in reverse order")]
+        reverse: bool
+    },
     #[command(about = "Check for unread news items.")]
     Check,
     #[command(about = "Read a specific news item.")]
@@ -74,10 +77,17 @@ fn is_under_pacman() -> bool {
     }
 }
 
-fn list_entries(entries: &Vec<Entry>, _conf: &Config) -> () {
-    for (i, entry) in entries.iter().enumerate() {
-        println!("{}: {} {}", i, entry.title, entry.timestamp);
+fn list_entries(entries: &Vec<Entry>, _conf: &Config, reverse: bool) -> () {
+    if reverse {
+        for (i, entry) in entries.iter().enumerate().rev() {
+            term::pretty_print_title(i, entry);
+        }
+    } else {
+        for (i, entry) in entries.iter().enumerate() {
+            term::pretty_print_title(i, entry);
+        }
     }
+
 }
 
 fn check_entries(entries: &Vec<Entry>, conf: &Config) -> () {
@@ -132,8 +142,8 @@ fn main() {
     match entries {
         Ok(entries) => {
             match &cli.subcommand {
-                SubCommand::List => {
-                    list_entries(&entries, &conf);
+                SubCommand::List { reverse } => {
+                    list_entries(&entries, &conf, *reverse);
                 },
                 SubCommand::Check => {
                     check_entries(&entries, &conf);
