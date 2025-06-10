@@ -8,6 +8,7 @@ use clap::{crate_version, Parser, Subcommand, Args};
 use read_list::{get_unread_entries, load_or_create};
 
 const READ_LIST_PATH: &str = "readlist";
+const FEED_ENDPOINT: &str = "https://archlinux.org/feeds/news/";
 
 macro_rules! handle_error {
     ($e:expr, $msg:literal) => {
@@ -27,6 +28,7 @@ macro_rules! pretty_print_item {
 }
 
 struct Config<'a> {
+    endpoint: &'a str,
     raw: bool, // whether to print raw HTML
     read_list_path: &'a str,
     overwrite: bool, // whether to overwrite the read list
@@ -50,6 +52,8 @@ struct Flags {
     clear_readlist: bool, // whether to clear the read list
     #[clap(long = "file", short = 'f', global = true, help="Path to the read list file", default_value = READ_LIST_PATH)]
     readlist_path: String, // path to the read list file
+    #[clap(long, global = true, help="Endpoint for the news feed", default_value = FEED_ENDPOINT)]
+    url: String
 }
 
 #[derive(Debug, Subcommand)]
@@ -132,13 +136,13 @@ fn read_entries(entries: &Vec<Entry>, read_item: usize, conf: &Config) -> () {
 }
 fn main() {
     let cli = Cli::parse();
-    let entries = entries();
-    // let matches = cli().get_matches();
     let conf = Config {
+        endpoint: cli.flags.url.as_str(),
         raw: cli.flags.raw,
         read_list_path: cli.flags.readlist_path.as_str(),
         overwrite: cli.flags.clear_readlist,
     };
+    let entries = entries(conf.endpoint);
     match entries {
         Ok(entries) => {
             match &cli.subcommand {

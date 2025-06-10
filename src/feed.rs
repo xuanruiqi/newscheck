@@ -5,8 +5,6 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use md5::{Md5, Digest};
 
-const ENDPOINT: &str = "https://archlinux.org/feeds/news/";
-
 #[derive(Debug, Hash, Clone)]
 pub struct Entry {
     pub title: String,
@@ -49,8 +47,8 @@ impl Entry {
     }
 }
 
-pub fn entries() -> Result<Vec<Entry>, Box<dyn Error>> {
-    let body = reqwest::blocking::get(ENDPOINT)?.bytes()?;
+pub fn entries(url: &str) -> Result<Vec<Entry>, Box<dyn Error>> {
+    let body = reqwest::blocking::get(url)?.bytes()?;
     let ch = Channel::read_from(&body[..])?;
     let entries = ch.items().iter().map(|item|
         Entry::from_rss_item(item)).collect::<Result<Vec<Entry>, _>>()?;
