@@ -2,6 +2,8 @@ use html2text::from_read;
 use terminal_size::{terminal_size, Width};
 use chrono::Local;
 use crate::feed::Entry;
+use which::which;
+use std::{io::Write, process::{Command, Stdio}};
 
 const DEFAULT_WIDTH: usize = 80;
 
@@ -27,6 +29,22 @@ pub fn pretty_print_title(id: usize, entry: &Entry) {
     let pad = term_width.saturating_sub(entry.title.len() + 4);
     let ts = format_time!(entry.timestamp, &Local);
     println!("{}: {} {:>width$}", id, entry.title, ts, width = pad);
+}
+
+pub fn page_item(entry: &Entry, html_raw: bool, pager: &str) {
+    if let Err(_) = which(pager) {
+        pretty_print_item(entry, html_raw); // Fallback to standard pretty printing
+    }
+    let mut pager = Command::new(pager);
+    if let Ok(mut proc) = pager.stdin(Stdio::piped()).spawn() {
+        let ts = format_time!(entry.timestamp, &Local);
+        let body = if html_raw { entry.body.clone() } else { from_read(entry.body.as_bytes(), DEFAULT_WIDTH).unwrap_or(entry.body.clone()) };
+        proc.stdin.take().expect("Bad pipe to pager").write_fmt(format_args!("# {}\n{}\n{}\n", entry.title, ts, body))
+            .expect("Broken pipe to pager");
+        proc.wait().expect("Pager process did not exit cleanly");
+    } else {
+        pretty_print_item(entry, html_raw);
+    }
 }
 
 pub fn pretty_print_item(entry: &Entry, html_raw: bool) {

@@ -6,7 +6,7 @@ use feed::{Entry, entries};
 use sysinfo::{System, get_current_pid};
 use clap::{crate_version, Parser, Subcommand, Args};
 use read_list::{get_unread_entries, load_or_create};
-use term::pretty_print_item;
+use term::{pretty_print_item, page_item};
 
 const READ_LIST_PATH: &str = "readlist";
 const FEED_ENDPOINT: &str = "https://archlinux.org/feeds/news/";
@@ -37,6 +37,7 @@ struct Config<'a> {
     raw: bool, // whether to print raw HTML
     read_list_path: &'a str,
     overwrite: bool, // whether to overwrite the read list
+    pager: Option<&'a str>, // optional pager command
 }
 
 #[derive(Debug, Parser)]
@@ -58,7 +59,9 @@ struct Flags {
     #[clap(long = "file", short = 'f', global = true, help="Path to the read list file", default_value = READ_LIST_PATH)]
     readlist_path: String, // path to the read list file
     #[clap(long, global = true, help="Endpoint for the news feed", default_value = FEED_ENDPOINT)]
-    url: String
+    url: String,
+    #[clap(short, long, global = true, help = "Use a pager to display news items")]
+    pager: Option<String>
 }
 
 #[derive(Debug, Subcommand)]
@@ -132,7 +135,9 @@ fn check_entries(entries: &Vec<Entry>, conf: &Config) -> () {
 fn read_entries(entries: &Vec<Entry>, read_item: usize, conf: &Config) -> () {
     with_read_list!(conf, |read_list| {
         if let Some(entry) = entries.get(read_item) {
-            pretty_print_item(entry, conf.raw);
+            if let Some(pager) = conf.pager { 
+                page_item(entry, conf.raw, pager);
+            } else { pretty_print_item(entry, conf.raw) };
             handle_error!(
                 read_list::add_and_save(conf.read_list_path, read_list, entry),
                 "Error writing to read list"
@@ -161,6 +166,7 @@ fn main() {
         raw: cli.flags.raw,
         read_list_path: cli.flags.readlist_path.as_str(),
         overwrite: cli.flags.clear_readlist,
+        pager: cli.flags.pager.as_deref(),
     };
     let entries = entries(conf.endpoint);
     match entries {
