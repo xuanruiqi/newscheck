@@ -6,9 +6,25 @@ use feed::{Entry, entries};
 use sysinfo::{System, get_current_pid};
 use clap::{crate_version, Parser, Subcommand, Args};
 use read_list::{get_unread_entries, load_or_create};
-use term::pretty_print_item;
 
 const READ_LIST_PATH: &str = "readlist";
+
+macro_rules! handle_error {
+    ($e:expr, $msg:literal) => {
+        if let Err(e) = $e {
+            eprintln!("{}: {}", $msg, e);
+        }
+    };
+}
+
+macro_rules! pretty_print_item {
+    ($item:expr, $raw:expr) => {
+        handle_error!(
+            term::pretty_print_item($item, $raw),
+            "Error printing item"
+        );
+    };
+}
 
 struct Config<'a> {
     raw: bool, // whether to print raw HTML
@@ -71,9 +87,12 @@ fn check_entries(entries: &Vec<Entry>, conf: &Config) -> () {
             if unread_entries.is_empty() {
                 println!("There are no unread news items.");
             } else if unread_entries.len() == 1 {
-                println!("There is 1 unread news item. Use \"newscheck read [# of news item]\" to read it."); 
+                pretty_print_item!(&unread_entries[0], conf.raw);
             } else {
-                println!("There are {} unread news items. Use \"newscheck read [# of news item]\" to read them.", unread_entries.len());
+                println!(
+                    "There are {} unread news items. Use \"newscheck read [# of news item]\" to read them.",
+                    unread_entries.len()
+                );
             }
         },
         Err(e) => {
@@ -86,13 +105,12 @@ fn read_entries(entries: &Vec<Entry>, read_item: usize, conf: &Config) -> () {
     match load_or_create(conf.read_list_path, conf.overwrite) {
         Ok(mut read_list) => {
             if let Some(entry) = entries.get(read_item) {
-                if let Err(e) = pretty_print_item(entry, conf.raw) {
-                    eprintln!("Error printing item: {}", e);
-                }
+                pretty_print_item!(entry, conf.raw);
                 read_list.extend_from_slice(&entry.digest());
-                if let Err(e) = read_list::write_read_list(conf.read_list_path, read_list) {
-                    eprintln!("Error writing to read list: {}", e);
-                }
+                handle_error!(
+                    read_list::write_read_list(conf.read_list_path, read_list),
+                    "Error writing to read list"
+                );
             } else {
                 eprintln!("No news found for index {}", read_item);
             }
