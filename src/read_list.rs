@@ -38,12 +38,15 @@ pub fn write_read_list(path: &str, read_list: Vec<u8>) -> std::io::Result<()> {
     std::fs::write(path, read_list)
 }
 
-/* fn read_entry(entry: &mut Entry, read_list: &mut Vec<u8>) -> () {
-    if !entry.unread() {
-        entry.mark_as_read();
-        read_list.extend_from_slice(&entry.digest());
+pub fn add_and_save(path: &str, read_list: Vec<u8>, entry: &Entry) -> std::io::Result<()> {
+    if !read_list.chunks(16).any(|d| d == &entry.digest()) {
+        let mut new_read_list = read_list.clone();
+        new_read_list.extend_from_slice(&entry.digest());
+        std::fs::write(path, read_list)
+    } else {
+        Ok(())
     }
-} */
+}
 
 pub fn get_unread_entries(entries: &Vec<Entry>, read_list: &Vec<u8>) -> Vec<Entry> {
     entries.iter()

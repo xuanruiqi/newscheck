@@ -6,6 +6,7 @@ use feed::{Entry, entries};
 use sysinfo::{System, get_current_pid};
 use clap::{crate_version, Parser, Subcommand, Args};
 use read_list::{get_unread_entries, load_or_create};
+use term::pretty_print_item;
 
 const READ_LIST_PATH: &str = "readlist";
 const FEED_ENDPOINT: &str = "https://archlinux.org/feeds/news/";
@@ -18,12 +19,16 @@ macro_rules! handle_error {
     };
 }
 
-macro_rules! pretty_print_item {
-    ($item:expr, $raw:expr) => {
-        handle_error!(
-            term::pretty_print_item($item, $raw),
-            "Error printing item"
-        );
+macro_rules! with_read_list {
+    ($conf:expr, $action:expr) => {
+        match load_or_create($conf.read_list_path, $conf.overwrite) {
+            Ok(read_list) => {
+                $action(read_list);
+            },
+            Err(e) => {
+                eprintln!("Error loading read list: {}", e);
+            }
+        }
     };
 }
 
@@ -60,14 +65,18 @@ struct Flags {
 enum SubCommand {
     #[command(about = "List the most recent news entries, including all read and unread items.")]
     List {
-        #[clap(long, help = "List news items in reverse order")]
-        reverse: bool
+        #[clap(long, global = false, help = "List news items in reverse order")]
+        reverse: bool,
+        #[clap(long = "unread", global = false, help = "Print raw HTML instead of formatted text")]
+        only_unread: bool
     },
     #[command(about = "Check for unread news items.")]
     Check,
     #[command(about = "Read a specific news item.")]
     Read {
-        num_item: Option<usize>
+        num_item: Option<usize>,
+        #[clap(long = "all", global = false, help = "Mark all news items as read without printing")]
+        all: bool
     }
 }
 
@@ -81,13 +90,23 @@ fn is_under_pacman() -> bool {
     }
 }
 
-fn list_entries(entries: &Vec<Entry>, _conf: &Config, reverse: bool) -> () {
+fn list_entries(entries: &Vec<Entry>, conf: &Config, reverse: bool, unread: bool) -> () {
+    let entries_to_list = if unread {
+        match load_or_create(conf.read_list_path, conf.overwrite) {
+            Ok(read_list) => &get_unread_entries(entries, &read_list),
+            Err(e) => {
+                eprintln!("Error loading read list: {}", e);
+                entries}
+        }
+    } else {
+        entries
+    };
     if reverse {
-        for (i, entry) in entries.iter().enumerate().rev() {
+        for (i, entry) in entries_to_list.iter().enumerate().rev() {
             term::pretty_print_title(i, entry);
         }
     } else {
-        for (i, entry) in entries.iter().enumerate() {
+        for (i, entry) in entries_to_list.iter().enumerate() {
             term::pretty_print_title(i, entry);
         }
     }
@@ -95,45 +114,46 @@ fn list_entries(entries: &Vec<Entry>, _conf: &Config, reverse: bool) -> () {
 }
 
 fn check_entries(entries: &Vec<Entry>, conf: &Config) -> () {
-    match load_or_create(conf.read_list_path, conf.overwrite) {
-        Ok(read_list) => {
-            let unread_entries = get_unread_entries(entries, &read_list);
-            if unread_entries.is_empty() {
-                println!("There are no unread news items.");
-            } else if unread_entries.len() == 1 {
-                pretty_print_item!(&unread_entries[0], conf.raw);
-            } else {
-                println!(
-                    "There are {} unread news items. Use \"newscheck read [# of news item]\" to read them.",
-                    unread_entries.len()
-                );
-            }
-        },
-        Err(e) => {
-            eprintln!("Error loading read list: {}", e);
+    with_read_list!(conf, |read_list| {
+        let unread_entries = get_unread_entries(entries, &read_list);
+        if unread_entries.is_empty() {
+            println!("There are no unread news items.");
+        } else if unread_entries.len() == 1 {
+            pretty_print_item(&unread_entries[0], conf.raw);
+        } else {
+            println!(
+                "There are {} unread news items. Use \"newscheck read [# of news item]\" to read them.",
+                unread_entries.len()
+            );
         }
-    }
+    });
 }
 
 fn read_entries(entries: &Vec<Entry>, read_item: usize, conf: &Config) -> () {
-    match load_or_create(conf.read_list_path, conf.overwrite) {
-        Ok(mut read_list) => {
-            if let Some(entry) = entries.get(read_item) {
-                pretty_print_item!(entry, conf.raw);
-                read_list.extend_from_slice(&entry.digest());
-                handle_error!(
-                    read_list::write_read_list(conf.read_list_path, read_list),
-                    "Error writing to read list"
-                );
-            } else {
-                eprintln!("No news found for index {}", read_item);
-            }
-        },
-        Err(e) => {
-            eprintln!("Error loading read list: {}", e);
+    with_read_list!(conf, |read_list| {
+        if let Some(entry) = entries.get(read_item) {
+            pretty_print_item(entry, conf.raw);
+            handle_error!(
+                read_list::add_and_save(conf.read_list_path, read_list, entry),
+                "Error writing to read list"
+            );
+        } else {
+            eprintln!("No news found for index {}", read_item);
         }
-    }
+    });
 }
+
+fn mark_all_read(entries: &Vec<Entry>, conf: &Config) -> () {
+    let mut buf: Vec<u8> = Vec::new();
+    for entry in entries {
+        buf.extend_from_slice(&entry.digest());
+    }
+    handle_error!(
+        read_list::write_read_list(conf.read_list_path, buf),
+        "Error writing to read list"
+    );
+}
+
 fn main() {
     let cli = Cli::parse();
     let conf = Config {
@@ -146,15 +166,20 @@ fn main() {
     match entries {
         Ok(entries) => {
             match &cli.subcommand {
-                SubCommand::List { reverse } => {
-                    list_entries(&entries, &conf, *reverse);
+                SubCommand::List { reverse, only_unread  } => {
+                    list_entries(&entries, &conf, *reverse, *only_unread);
                 },
                 SubCommand::Check => {
                     check_entries(&entries, &conf);
                 },
-                SubCommand::Read { num_item } => {
-                    let read_item: usize = num_item.unwrap_or(0);
-                    read_entries(&entries, read_item, &conf);
+                SubCommand::Read { num_item, all } => {
+                    if *all {
+                        mark_all_read(&entries, &conf);
+                    } else if let Some(num) = num_item {
+                        read_entries(&entries, *num, &conf);
+                    } else {
+                        eprintln!("Not implemented yet.");
+                    }
                 }
             }
         }
