@@ -3,7 +3,7 @@ mod read_list;
 mod term;
 
 use core::fmt;
-use std::process::ExitCode;
+use std::{io::IsTerminal, process::ExitCode};
 
 use feed::{Entry, entries};
 use sysinfo::{System, get_current_pid};
@@ -197,7 +197,7 @@ fn mark_all_read(entries: &Vec<Entry>, conf: &Config) -> Result<(), Box<dyn std:
 }
 
 fn read_all_unread(entries: &Vec<Entry>, conf: &Config) -> Result<(), Box<dyn std::error::Error>> {
-    if atty::isnt(atty::Stream::Stdout) {
+    if !std::io::stdout().is_terminal() {
         print_warning("interactive mode is not available. `newscheck read` without arguments is meant to be used interactively only.");
         return Err(Box::new(std::io::Error::new(
             std::io::ErrorKind::Other,
