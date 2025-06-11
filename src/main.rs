@@ -12,7 +12,7 @@ use clap_complete::{generate, Shell};
 use read_list::{get_unread_entries, load_or_create};
 use term::{pretty_print_item, print_error, print_warning, print_pacman, prompt};
 
-const READ_LIST_PATH: &str = "readlist";
+const READ_LIST_PATH: &str = "/var/lib/newscheck/data";
 const FEED_ENDPOINT: &str = "https://archlinux.org/feeds/news/";
 
 macro_rules! page_or_pp {
@@ -21,6 +21,16 @@ macro_rules! page_or_pp {
             term::page_item($entry, $conf.raw, pager);
         } else {
             term::pretty_print_item($entry, $conf.raw);
+        }
+    };
+}
+
+macro_rules! warn_pacman {
+    ($msg:expr, $pacman:expr) => {
+        if $pacman {
+            print_pacman($msg)
+        } else {
+            print_warning($msg)
         }
     };
 }
@@ -223,9 +233,20 @@ fn app() -> Result<(), Box<dyn std::error::Error>> {
         pager: pager.as_deref(),
         hook: is_under_pacman() || cli.flags.debug_pacman
     };
-    let entries = entries(conf.endpoint)?;
+    let entries = match entries(conf.endpoint) {
+        Ok(entries) => entries,
+        Err(e) => {
+            // special handling if running as a pacman hook, so as to not block the upgrade
+            if conf.hook {
+                print_pacman("failed to fetch news feed, proceeding anyway");
+                vec![]
+            } else {
+                return Err(e.into());
+            }
+        }
+    };
     if entries.is_empty() {
-        print_warning("doing nothing because there are no news items found");
+        warn_pacman!("doing nothing because there are no news items found", conf.hook);
         return Ok(());
     }
     match &cli.subcommand {

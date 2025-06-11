@@ -44,11 +44,11 @@ pub fn print_pacman(msg: &str) {
     if let Some(mut t_ref) = term::stderr() {
         let t = t_ref.as_mut();
         t.fg(term::color::YELLOW).unwrap_or(());
-        write!(t, ":: newsread: ").unwrap_or(());
+        write!(t, ":: newscheck: ").unwrap_or(());
         t.reset().unwrap_or(());
         writeln!(t, "{}", msg).unwrap_or(());
     } else {
-        eprintln!(":: newsread: {}", msg);
+        eprintln!(":: newscheck: {}", msg);
     }
 }
 
