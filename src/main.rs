@@ -222,6 +222,13 @@ fn read_all_unread(entries: &Vec<Entry>, conf: &Config) -> Result<(), Box<dyn st
 
 fn app() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
+
+    if let SubCommand::Completions { shell } = &cli.subcommand {
+        let mut cmd = Cli::command();
+        generate(*shell, &mut cmd, "newscheck", &mut std::io::stdout());
+        return Ok(());
+    }
+
     let pager = cli.flags.pager.clone().or_else(|| {
         std::env::var("NEWSCHECK_PAGER").ok()
     });
@@ -265,10 +272,8 @@ fn app() -> Result<(), Box<dyn std::error::Error>> {
                 read_all_unread(&entries, &conf)?;
             }
         },
-        SubCommand::Completions { shell } => {
-            let mut cmd = Cli::command();
-            generate(*shell, &mut cmd, "newscheck", &mut std::io::stdout());
-            return Ok(());
+        SubCommand::Completions { shell: _ } => {
+            panic!("Can't happen");
         }
     }
     Ok(())
