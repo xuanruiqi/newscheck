@@ -43,7 +43,7 @@ pub fn print_warning(msg: &str) {
 pub fn print_pacman(msg: &str) {
     if let Some(mut t_ref) = term::stderr() {
         let t = t_ref.as_mut();
-        t.fg(term::color::RED).unwrap_or(());
+        t.fg(term::color::YELLOW).unwrap_or(());
         write!(t, ":: newsread: ").unwrap_or(());
         t.reset().unwrap_or(());
         writeln!(t, "{}", msg).unwrap_or(());
@@ -98,5 +98,20 @@ pub fn pretty_print_item(entry: &Entry, html_raw: bool) {
         println!("{}", entry.title);
         println!("{}", ts);
         println!("{}", body);
+    }
+}
+
+pub fn prompt(prompt_str: &str) -> Result<bool, std::io::Error> {
+    let mut input = String::new();
+    print!("{}", prompt_str);
+    std::io::stdout().flush()?;
+    std::io::stdin().read_line(&mut input)?;
+    match input.trim().to_lowercase().as_str() {
+        "y" | "yes" | "" => Ok(true),
+        "n" | "no" => Ok(false),
+        _ => {
+            print_error("Invalid input. Please enter 'y' or 'n'.");
+            prompt(prompt_str) // Recursive call for valid input
+        }
     }
 }

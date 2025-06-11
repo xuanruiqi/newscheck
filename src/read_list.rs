@@ -38,13 +38,9 @@ pub fn write_read_list(path: &str, read_list: Vec<u8>) -> std::io::Result<()> {
     std::fs::write(path, read_list)
 }
 
-pub fn add_and_save(path: &str, read_list: Vec<u8>, entry: &Entry) -> std::io::Result<()> {
+pub fn add_to_read_list(read_list: &mut Vec<u8>, entry: &Entry) {
     if !read_list.chunks(16).any(|d| d == &entry.digest()) {
-        let mut new_read_list = read_list.clone();
-        new_read_list.extend_from_slice(&entry.digest());
-        std::fs::write(path, read_list)
-    } else {
-        Ok(())
+        read_list.extend_from_slice(&entry.digest());
     }
 }
 

@@ -10,10 +10,20 @@ use sysinfo::{System, get_current_pid};
 use clap::{crate_version, Parser, Subcommand, Args, CommandFactory};
 use clap_complete::{generate, Shell};
 use read_list::{get_unread_entries, load_or_create};
-use term::{pretty_print_item, page_item, print_error, print_warning, print_pacman};
+use term::{pretty_print_item, print_error, print_warning, print_pacman, prompt};
 
 const READ_LIST_PATH: &str = "readlist";
 const FEED_ENDPOINT: &str = "https://archlinux.org/feeds/news/";
+
+macro_rules! page_or_pp {
+    ($entry:expr, $conf:expr) => {
+        if let Some(pager) = $conf.pager {
+            term::page_item($entry, $conf.raw, pager);
+        } else {
+            term::pretty_print_item($entry, $conf.raw);
+        }
+    };
+}
 
 #[derive(Debug, Clone, Copy)]
 struct Blocked;
@@ -56,7 +66,9 @@ struct Flags {
     #[clap(long, global = true, help="Endpoint for the news feed", default_value = FEED_ENDPOINT)]
     url: String,
     #[clap(short, long, global = true, help = "Use a pager to display news items")]
-    pager: Option<String>
+    pager: Option<String>,
+    #[clap(long, global = true, help = "Run as if this is a pacman hook (for debugging purposes)", hide = true)]
+    debug_pacman: bool
 }
 
 #[derive(Debug, Subcommand)]
@@ -126,7 +138,7 @@ fn list_entries(entries: &Vec<Entry>, conf: &Config, reverse: bool, unread: bool
 }
 
 fn check_entries(entries: &Vec<Entry>, conf: &Config) -> Result<(), Box<dyn std::error::Error>> {
-    let read_list = load_or_create(conf.read_list_path, conf.overwrite)?;
+    let mut read_list = load_or_create(conf.read_list_path, conf.overwrite)?;
     let unread_entries = get_unread_entries(entries, &read_list);
     if unread_entries.is_empty() {
         println!("There are no unread news items.");
@@ -136,7 +148,8 @@ fn check_entries(entries: &Vec<Entry>, conf: &Config) -> Result<(), Box<dyn std:
             print_pacman(&format!("stopping upgrade to print news"));
         }
         pretty_print_item(&unread_entries[0], conf.raw);
-        read_list::add_and_save(conf.read_list_path, read_list, &unread_entries[0])?;
+        read_list::add_to_read_list(&mut read_list, &unread_entries[0]);
+        read_list::write_read_list(conf.read_list_path, read_list)?;
         if conf.hook {
             print_pacman("you can re-run your upgrade command to complete the upgrade.");
             Err(Box::<dyn std::error::Error>::from(Blocked))?;
@@ -156,14 +169,11 @@ fn check_entries(entries: &Vec<Entry>, conf: &Config) -> Result<(), Box<dyn std:
 }
 
 fn read_entries(entries: &Vec<Entry>, read_item: usize, conf: &Config) -> Result<(), Box<dyn std::error::Error>> {
-    let read_list = load_or_create(conf.read_list_path, conf.overwrite)?;
+    let mut read_list = load_or_create(conf.read_list_path, conf.overwrite)?;
     let entry = entries.get(read_item).ok_or(format!("there is no news item with index {}", read_item))?;
-    if let Some(pager) = conf.pager { 
-        page_item(entry, conf.raw, pager);
-    } else {
-        pretty_print_item(entry, conf.raw)
-    };
-    read_list::add_and_save(conf.read_list_path, read_list, entry)?;
+    page_or_pp!(entry, conf);
+    read_list::add_to_read_list(&mut read_list, entry);
+    read_list::write_read_list(conf.read_list_path, read_list)?;
     Ok(())
 }
 
@@ -176,15 +186,42 @@ fn mark_all_read(entries: &Vec<Entry>, conf: &Config) -> Result<(), Box<dyn std:
     Ok(())
 }
 
+fn read_all_unread(entries: &Vec<Entry>, conf: &Config) -> Result<(), Box<dyn std::error::Error>> {
+    if atty::isnt(atty::Stream::Stdout) {
+        print_warning("interactive mode is not available. `newscheck read` without arguments is meant to be used interactively only.");
+        return Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "not a TTY"
+        )));
+    }
+    let mut read_list = load_or_create(conf.read_list_path, conf.overwrite)?;
+    let unread = get_unread_entries(entries, &read_list);
+    let mut it = unread.iter().peekable();
+    while let Some(entry) = it.next() {
+        page_or_pp!(entry, conf);
+        read_list::add_to_read_list(&mut read_list, entry);
+        if it.peek().is_some() {
+            if !prompt("Read next news item? (y/n) ")? { break };
+        } else {
+            println!("All unread news items have been read.");
+        }
+    }
+    read_list::write_read_list(conf.read_list_path, read_list)?;
+    Ok(())
+}
+
 fn app() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
+    let pager = cli.flags.pager.clone().or_else(|| {
+        std::env::var("NEWSCHECK_PAGER").ok()
+    });
     let conf = Config {
         endpoint: cli.flags.url.as_str(),
         raw: cli.flags.raw,
         read_list_path: cli.flags.readlist_path.as_str(),
         overwrite: cli.flags.clear_readlist,
-        pager: cli.flags.pager.as_deref(),
-        hook: is_under_pacman()
+        pager: pager.as_deref(),
+        hook: is_under_pacman() || cli.flags.debug_pacman
     };
     let entries = entries(conf.endpoint)?;
     if entries.is_empty() {
@@ -204,7 +241,7 @@ fn app() -> Result<(), Box<dyn std::error::Error>> {
             } else if let Some(num) = num_item {
                 read_entries(&entries, *num, &conf)?;
             } else {
-                Err(Box::<dyn std::error::Error>::from("not implemented yet!"))?;
+                read_all_unread(&entries, &conf)?;
             }
         },
         SubCommand::Completions { shell } => {
@@ -218,7 +255,13 @@ fn app() -> Result<(), Box<dyn std::error::Error>> {
 
 fn main() -> std::process::ExitCode {
     if let Err(e) = app() {
-        print_error(&format!("{}", e));
+        e.as_ref()
+            .downcast_ref::<Blocked>()
+            .map_or_else(|| {
+                print_error(&format!("{}", e));
+            }, |_blocked| {
+                ()
+            });
         ExitCode::FAILURE
     } else {
         ExitCode::SUCCESS
