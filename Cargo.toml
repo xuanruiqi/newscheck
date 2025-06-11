@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 rss = "2.0"
-reqwest = { version = "0.12.19", features = ["json", "blocking"] }
+reqwest = { version = "0.12.20", features = ["json", "blocking"] }
 sysinfo = "0.35.2"
 clap = { version = "4.5.40", features = ["cargo", "derive"] }
 chrono = { version = "0.4.41", features = ["clock"] }
