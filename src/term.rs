@@ -16,6 +16,42 @@ macro_rules! format_time {
     };
 }
 
+pub fn print_error(msg: &str) {
+    if let Some(mut t_ref) = term::stderr() {
+        let t = t_ref.as_mut();
+        t.fg(term::color::RED).unwrap_or(());
+        write!(t, "ERROR: ").unwrap_or(());
+        t.reset().unwrap_or(());
+        writeln!(t, "{}", msg).unwrap_or(());
+    } else {
+        eprintln!("ERROR: {}", msg);
+    }
+}
+
+pub fn print_warning(msg: &str) {
+    if let Some(mut t_ref) = term::stderr() {
+        let t = t_ref.as_mut();
+        t.fg(term::color::YELLOW).unwrap_or(());
+        write!(t, "WARN: ").unwrap_or(());
+        t.reset().unwrap_or(());
+        writeln!(t, "{}", msg).unwrap_or(());
+    } else {
+        eprintln!("WARN: {}", msg);
+    }
+}
+
+pub fn print_pacman(msg: &str) {
+    if let Some(mut t_ref) = term::stderr() {
+        let t = t_ref.as_mut();
+        t.fg(term::color::RED).unwrap_or(());
+        write!(t, ":: newsread: ").unwrap_or(());
+        t.reset().unwrap_or(());
+        writeln!(t, "{}", msg).unwrap_or(());
+    } else {
+        eprintln!(":: newsread: {}", msg);
+    }
+}
+
 fn get_width() -> usize {
     if let Some((Width(w), _)) = terminal_size() {
         w as usize
