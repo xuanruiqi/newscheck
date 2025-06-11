@@ -1,0 +1,12 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = *
+Target = !newscheck
+
+[Action]
+Description = Check Arch Linux News with Newscheck
+When = PreTransaction
+Exec = /usr/bin/newscheck check
+AbortOnFail

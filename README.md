@@ -6,7 +6,7 @@ Yet another Arch Linux news reader, similar to [informant](https://github.com/br
 
 ## Installation
 
-You should install this using `pacman` from the AUR (WIP). Otherwise you could simply use `cargo` to build the binary.
+You should install this using `pacman` from the AUR. Otherwise you could simply use `cargo` to build the binary.
 
 ## Commands
 
