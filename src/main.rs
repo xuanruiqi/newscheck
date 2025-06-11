@@ -83,7 +83,7 @@ struct Flags {
 
 #[derive(Debug, Subcommand)]
 enum SubCommand {
-    #[command(about = "List the most recent news entries, including all read and unread items")]
+    #[command(about = "List the most recent news entries (see `newscheck list --help` for options)")]
     List {
         #[clap(long, global = false, help = "List news items in reverse order")]
         reverse: bool,
@@ -92,7 +92,7 @@ enum SubCommand {
     },
     #[command(about = "Check for unread news items")]
     Check,
-    #[command(about = "Read a specific news item")]
+    #[command(about = "Read the news (see `newscheck read --help` for options)")]
     Read {
         num_item: Option<usize>,
         #[clap(long = "all", global = false, help = "Mark all news items as read without printing")]
@@ -111,7 +111,7 @@ $ newscheck completions bash > ~/.bash_completion.d/newscheck.bash
 
 or for zsh:
 
-$ newscheck completions zsh > ~/.zsh/site_functions/_newscheck"#)]
+$ newscheck completions zsh > ~/.zsh/site_functions/_newscheck"#, hide = true)]
     Completions {
         #[clap(value_enum, help = "Shell to generate completions for")]
         shell: Shell
