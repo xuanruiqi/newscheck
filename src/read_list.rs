@@ -12,12 +12,11 @@ pub fn load_or_create(path: &str, overwrite: bool) -> std::io::Result<Vec<u8>> {
     match read(path) {
         Ok(data) => Ok(data),
         Err(e) => {
-            match e.kind() {
-                ErrorKind::NotFound => {
-                    File::create(path)?;
-                    Ok(Vec::new())
-                },
-                _ => Err(e), // Propagate other errors
+            if let ErrorKind::NotFound = e.kind() {
+                File::create(path)?;
+                Ok(Vec::new())
+            } else {
+                Err(e)
             }
         }
     }
@@ -25,13 +24,9 @@ pub fn load_or_create(path: &str, overwrite: bool) -> std::io::Result<Vec<u8>> {
 
 fn check_read(read_list: &Vec<u8>, entry: &Entry) -> bool {
     let entry_digest = entry.digest();
-    let chunked = read_list.chunks(HASH_SIZE);
-    for chunk in chunked {
-        if chunk.len() == HASH_SIZE && chunk == entry_digest {
-            return true;
-        }
-    }
-    false
+    read_list.chunks(HASH_SIZE).any(|chunk| {
+        chunk.len() == HASH_SIZE && chunk == &entry_digest
+    })
 }
 
 pub fn write_read_list(path: &str, read_list: Vec<u8>) -> std::io::Result<()> {
