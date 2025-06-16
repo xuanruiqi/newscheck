@@ -48,7 +48,7 @@ impl Entry {
 }
 
 pub fn entries(url: &str) -> Result<Vec<Entry>, Box<dyn Error>> {
-    let body = reqwest::blocking::get(url)?.bytes()?;
+    let body = ureq::get(url).call()?.body_mut().read_to_vec()?;
     let ch = Channel::read_from(&body[..])?;
     let entries = ch.items().iter().map(|item|
         Entry::from_rss_item(item)).collect::<Result<Vec<Entry>, _>>()?;

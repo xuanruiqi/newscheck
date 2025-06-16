@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 rss = "2.0"
-reqwest = { version = "0.12.20", features = ["json", "blocking"] }
 sysinfo = "0.35.2"
 clap = { version = "4.5.40", features = ["cargo", "derive"] }
 chrono = { version = "0.4.41", features = ["clock"] }
@@ -15,3 +14,4 @@ html2text = "0.15.1"
 term = "1.0.2"
 which = "8.0.0"
 clap_complete = "4.5.54"
+ureq = "3.0.12"
