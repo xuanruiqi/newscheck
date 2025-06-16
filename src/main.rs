@@ -118,14 +118,12 @@ $ newscheck completions zsh > ~/.zsh/site_functions/_newscheck"#, hide = true)]
     }
 }
 
-fn is_under_pacman() -> bool {
+fn is_under_pacman() -> Option<bool> {
     let s = System::new_all();
     let curr_pid = get_current_pid().unwrap_or(0.into());
-    let parent = s.process(curr_pid);
-    match parent {
-        Some(proc) => proc.name() == "pacman",
-        None => false,
-    }
+    let parent = s.process(curr_pid)?.parent()?;
+    let parent_name = s.process(parent)?.name();
+    Some(parent_name == "pacman")
 }
 
 fn list_entries(entries: &Vec<Entry>, conf: &Config, reverse: bool, unread: bool) -> Result<(), Box<dyn std::error::Error>> {
@@ -238,7 +236,7 @@ fn app() -> Result<(), Box<dyn std::error::Error>> {
         read_list_path: cli.flags.readlist_path.as_str(),
         overwrite: cli.flags.clear_readlist,
         pager: pager.as_deref(),
-        hook: is_under_pacman() || cli.flags.debug_pacman
+        hook: is_under_pacman().unwrap_or(false) || cli.flags.debug_pacman
     };
     let entries = match entries(conf.endpoint) {
         Ok(entries) => entries,
