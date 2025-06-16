@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use md5::{Md5, Digest};
+use ureq::tls::{TlsConfig, TlsProvider};
 
 #[derive(Debug, Hash, Clone)]
 pub struct Entry {
@@ -48,7 +49,12 @@ impl Entry {
 }
 
 pub fn entries(url: &str) -> Result<Vec<Entry>, Box<dyn Error>> {
-    let body = ureq::get(url).call()?.body_mut().read_to_vec()?;
+    let agent = ureq::config::Config::builder()
+        .tls_config(TlsConfig::builder()
+            .provider(TlsProvider::NativeTls)
+            .build())
+        .build().new_agent();
+    let body = agent.get(url).call()?.body_mut().read_to_vec()?;
     let ch = Channel::read_from(&body[..])?;
     let entries = ch.items().iter().map(|item|
         Entry::from_rss_item(item)).collect::<Result<Vec<Entry>, _>>()?;
