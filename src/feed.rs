@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::time::Duration;
 use rss::{Channel, Item};
 use chrono::{DateTime, Utc};
 use std::fmt;
@@ -53,6 +54,7 @@ pub fn entries(url: &str) -> Result<Vec<Entry>, Box<dyn Error>> {
         .tls_config(TlsConfig::builder()
             .provider(TlsProvider::NativeTls)
             .build())
+        .timeout_global(Some(Duration::from_secs(10)))
         .build().new_agent();
     let body = agent.get(url).call()?.body_mut().read_to_vec()?;
     let ch = Channel::read_from(&body[..])?;
