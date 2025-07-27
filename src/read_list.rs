@@ -1,6 +1,7 @@
 use std::fs::{read, File};
 use std::io::ErrorKind;
 use crate::feed::Entry;
+use crate::term::{print_warning};
 
 const HASH_SIZE: usize = 16;
 
@@ -31,6 +32,11 @@ fn check_read(read_list: &Vec<u8>, entry: &Entry) -> bool {
 
 pub fn write_read_list(path: &str, read_list: Vec<u8>) -> std::io::Result<()> {
     std::fs::write(path, read_list)
+        .inspect_err(|e| {
+            if e.kind() == ErrorKind::PermissionDenied {
+                print_warning("Could not write to the read list. You must be in the \"newscheck\" group to do this.");
+            }
+        })
 }
 
 pub fn add_to_read_list(read_list: &mut Vec<u8>, entry: &Entry) {
