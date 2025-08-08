@@ -1,17 +1,17 @@
 [package]
 name = "newscheck"
-version = "0.2.2"
+version = "0.2.4"
 edition = "2024"
 
 [dependencies]
 rss = "2.0"
-sysinfo = "0.35.2"
-clap = { version = "4.5.40", features = ["cargo", "derive"] }
+sysinfo = "0.36.1"
+clap = { version = "4.5.43", features = ["cargo", "derive"] }
 chrono = { version = "0.4.41", features = ["clock"] }
 md-5 = "0.10.6"
 terminal_size = "0.4.2"
-html2text = "0.15.1"
-term = "1.0.2"
+html2text = "0.15.3"
+term = "1.1.0"
 which = "8.0.0"
-clap_complete = "4.5.54"
+clap_complete = "4.5.56"
 ureq = { version = "3.0.12", features = ["native-tls"], default-features = false }
