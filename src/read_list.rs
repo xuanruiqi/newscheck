@@ -1,7 +1,7 @@
 use std::fs::{read, File};
 use std::io::ErrorKind;
 use crate::feed::Entry;
-use crate::term::{print_warning};
+use crate::term::print_warning;
 
 const HASH_SIZE: usize = 16;
 
