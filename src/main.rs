@@ -10,7 +10,7 @@ use sysinfo::{System, get_current_pid};
 use clap::{crate_version, Parser, Subcommand, Args, CommandFactory};
 use clap_complete::{generate, Shell};
 use read_list::{get_unread_entries, load_or_create};
-use term::{pretty_print_item, print_error, print_warning, print_pacman, prompt};
+use term::{print_error, print_warning, print_pacman, prompt};
 
 const READ_LIST_PATH: &str = "/var/lib/newscheck/data";
 const FEED_ENDPOINT: &str = "https://archlinux.org/feeds/news/";
@@ -146,27 +146,26 @@ fn list_entries(entries: &Vec<Entry>, conf: &Config, reverse: bool, unread: bool
 }
 
 fn check_entries(entries: &Vec<Entry>, conf: &Config) -> Result<(), Box<dyn std::error::Error>> {
-    let mut read_list = load_or_create(conf.read_list_path, conf.overwrite)?;
+    let read_list = load_or_create(conf.read_list_path, conf.overwrite)?;
     let unread_entries = get_unread_entries(entries, &read_list);
     if unread_entries.is_empty() {
         println!("There are no unread news items.");
         Ok(())
-    } else if unread_entries.len() == 1 {
-        if conf.hook {
-            print_pacman(&format!("stopping upgrade to print news"));
-        }
-        pretty_print_item(&unread_entries[0], conf.raw);
-        read_list::add_to_read_list(&mut read_list, &unread_entries[0]);
-        read_list::write_read_list(conf.read_list_path, read_list)?;
-        if conf.hook {
-            print_pacman("you can re-run your upgrade command to complete the upgrade.");
-            Err(Box::<dyn std::error::Error>::from(Blocked))?;
-        }
-        Ok(())
     } else {
+        // `check` must be read-only: report the count and (as a pacman
+        // hook) block the upgrade, but never mark anything read — that's
+        // `read`'s job. The previous single-unread-item special case
+        // printed the item *and* marked it read before blocking, so an
+        // unattended re-run (e.g. a scripted `paru -Syu --noconfirm`)
+        // would sail through having consumed the news without anyone
+        // reading it. Treating 1 and N identically keeps the block
+        // idempotent until the user explicitly runs `newscheck read`.
+        let n = unread_entries.len();
         println!(
-            "There are {} unread news items. Use \"newscheck read [# of news item]\" to read them.",
-            unread_entries.len()
+            "There {} {} unread news item{}. Use \"newscheck read [# of news item]\" to read them.",
+            if n == 1 { "is" } else { "are" },
+            n,
+            if n == 1 { "" } else { "s" }
         );
         if conf.hook {
             print_pacman("run `newscheck read` to read the news before proceeding with the upgrade.");
